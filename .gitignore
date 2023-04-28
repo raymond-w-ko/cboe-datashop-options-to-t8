@@ -4,3 +4,4 @@
 .nrepl-port
 src/clj/app/config.clj
 .calva/output-window/output.calva-repl
+.rebel_readline_history
