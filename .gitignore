@@ -1,0 +1,4 @@
+.cache
+.cpcache
+/.lsp
+.nrepl-port

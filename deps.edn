@@ -1,0 +1,86 @@
+{:paths ["target/classes"
+         "src/clj"]
+
+ :mvn/repos {"central" {:url "https://repo1.maven.org/maven2/"}
+             "clojars" {:url "https://repo.clojars.org/"}}
+
+ :deps
+ {org.clojure/clojure {:mvn/version "1.11.1"}
+  org.clojure/core.async {:mvn/version "1.6.673"}
+  com.climate/claypoole {:mvn/version "1.1.4"}
+  org.clojure/core.cache {:mvn/version "1.0.225"}
+
+  com.taoensso/timbre {:mvn/version "6.1.0"}
+  org.slf4j/slf4j-simple {:mvn/version "2.0.7"}
+  tick/tick {:mvn/version "0.6.2"}
+
+  org.lmdbjava/lmdbjava  {:mvn/version "0.8.3"}
+  org.agrona/agrona {:mvn/version "1.18.1"}
+  com.taoensso/nippy {:mvn/version "3.2.0"}
+
+  software.amazon.awssdk/s3 {:mvn/version "2.20.55"}
+  software.amazon.awssdk/batch {:mvn/version "2.20.55"}
+
+  ; com.amazonaws/aws-java-sdk-s3 {:mvn/version "1.12.458"}
+  ; com.amazonaws/aws-java-sdk-batch {:mvn/version "1.12.458"}
+  ;; this requires AWS SDK v1
+  ; com.github.alexmojaki/s3-stream-upload {:mvn/version "2.2.4"}
+
+  javax.xml.bind/jaxb-api {:mvn/version "2.4.0-b180830.0359"}
+  org.glassfish.jaxb/jaxb-runtime {:mvn/version "4.0.2"}
+  org.glassfish.jaxb/jaxb-core {:mvn/version "4.0.2"}
+
+  ; org.apache.orc/orc-core {:mvn/version "1.8.3"}
+  ; org.apache.hadoop/hadoop-common {:mvn/version "3.3.5"}
+  ; org.apache.hadoop/hadoop-hdfs {:mvn/version "3.3.5"}
+  ; org.apache.parquet/parquet-avro {:mvn/version "1.13.0"}
+  ; org.apache.parquet/parquet-hadoop {:mvn/version "1.13.0"}
+
+  com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}
+  org.apache.commons/commons-collections4 {:mvn/version "4.4"}
+  org.apache.commons/commons-lang3 {:mvn/version "3.12.0"}
+  fipp/fipp {:mvn/version "0.6.26"}
+  cljfmt/cljfmt {:mvn/version "0.9.2"}}
+
+
+ :aliases
+ {:none
+  {}
+
+  :build
+  {:deps {io.github.clojure/tools.build {:git/tag "v0.9.4" :git/sha "76b78fe"}}
+   :ns-default build}
+
+  :worker
+  {:main-opts ["-m" "app.worker"]}
+
+  :repl
+  {:extra-deps {nrepl/nrepl {:mvn/version "1.0.0"}
+                cider/cider-nrepl {:mvn/version "0.30.0"}}
+   :jvm-opts ["-Djdk.attach.allowAttachSelf"
+              ; "-XX:+UnlockDiagnosticVMOptions"
+              ; "-XX:+DebugNonSafepoints"
+              "-Xmx16G"]
+   :main-opts  ["-e" "(require,'app.core),(in-ns,'app.core)"
+                "-m" "nrepl.cmdline"
+                "--middleware" "[cider.nrepl/cider-middleware]"
+                "--interactive"]}
+  :repl/rebel
+  {:extra-deps {nrepl/nrepl                {:mvn/version "1.0.0"}
+                cider/cider-nrepl          {:mvn/version "0.30.0"}
+                com.bhauman/rebel-readline {:mvn/version "0.1.4"}}
+   :jvm-opts ["-Djdk.attach.allowAttachSelf"
+              "-XX:+UseZGC"
+              ; "-XX:+UseParallelGC"
+              ; "-XX:+UseG1GC" "-XX:+UseStringDeduplication"
+              ; "-XX:+UnlockDiagnosticVMOptions"
+              ; "-XX:+DebugNonSafepoints"
+              "-Xmx16G"]
+   :main-opts  ["-e" "(require,'app.core),(in-ns,'app.core)"
+                "-m" "nrepl.cmdline"
+                "--middleware" "[cider.nrepl/cider-middleware]"
+                "--interactive"
+                "-f" "rebel-readline.main/-main"]}
+
+  :outdated {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
+             :main-opts ["-m" "antq.core"]}}}
