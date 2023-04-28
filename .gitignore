@@ -2,3 +2,5 @@
 .cpcache
 /.lsp
 .nrepl-port
+src/clj/app/config.clj
+.calva/output-window/output.calva-repl
