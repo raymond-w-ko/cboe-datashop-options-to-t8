@@ -1,0 +1,7 @@
+{:linters
+ {:unused-namespace {:exclude []}
+  :unresolved-var {:exclude []}}
+ :lint-as {}
+ :hooks {:analyze-call {app.macros/cond-let hooks.cond-xlet/cond-xlet
+                        app.macros/cond-xlet hooks.cond-xlet/cond-xlet}
+         :macroexpand {app.macros/args macros/args}}}
