@@ -27,14 +27,14 @@
                (.build))
          output []]
     (let [resp (.listObjectsV2 s3 req)
-          xs (mapv #(.key %) (-> resp .contents))]
-      (let [token (.nextContinuationToken resp)]
-        (if-not token
-          (into output xs)
-          (recur (-> (.toBuilder req)
-                     (.continuationToken token)
-                     (.build))
-                 (into output xs)))))))
+          xs (mapv #(.key %) (-> resp .contents))
+          token (.nextContinuationToken resp)] 
+      (if-not token
+        (into output xs)
+        (recur (-> (.toBuilder req)
+                   (.continuationToken token)
+                   (.build))
+               (into output xs))))))
 
 (defn get-object [object-key]
   (let [req (-> (GetObjectRequest/builder)
@@ -44,8 +44,8 @@
         aws-response (.getObject s3 req)]
     (->hash aws-response)))
 
-(defn ^ZipInputStream zip-object-key->input-stream
-  [zip-object-key]
+(defn zip-object-key->input-stream
+  ^ZipInputStream [zip-object-key]
   (let [{:as args :keys [aws-response]} (get-object zip-object-key)
         zip-input-stream (new ZipInputStream aws-response)]
     (mac/args zip-input-stream)))
