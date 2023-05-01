@@ -46,7 +46,6 @@
 (defmacro field [arr k]
   (let [i (get field-name-indexes k)
         transformer (case k
-                      "strike" `(Float/parseFloat)
                       `(identity))]
     `(-> (aget ~arr ~i)
          ~@transformer)))
