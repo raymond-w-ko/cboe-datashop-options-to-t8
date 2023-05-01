@@ -14,6 +14,50 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defmacro binding-block [& body]
+  (cond
+    ;; no form is nil
+    (= (count body) 0) nil
+
+    ;; one thing remaining is the return value
+    (= (count body) 1)
+    (first body)
+
+    ;; keyword special detected
+    (keyword? (first body))
+    (let [[_ x & xs] body
+          [k a b & cs] body]
+      (case k
+        :do `(do ~x
+                 (binding-block ~@xs))
+        :when `(if ~a
+                 ~b
+                 (binding-block ~@cs))
+        :with-open `(clojure.core/with-open [~a ~b]
+                      (binding-block ~@cs))))
+
+    ;; collect let forms and recurse
+    :else
+    (let [[let-forms remaining-body]
+          (loop [let-forms []
+                 remaining-body body]
+            (if (<= (count remaining-body) 1)
+              [let-forms remaining-body]
+              (let [[a b & xs] remaining-body]
+                (if-not (keyword? a)
+                  (recur (conj let-forms a b)
+                         xs)
+                  [let-forms remaining-body]))))]
+      (if (< 0 (count let-forms))
+        `(let [~@let-forms]
+           (binding-block ~@remaining-body))
+        `(binding-block ~@remaining-body)))))
+
+(defmacro bb [& body]
+  `(binding-block ~@body))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (def field-names
   ["underlying_symbol"
    "quote_datetime"

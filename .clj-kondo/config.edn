@@ -3,5 +3,7 @@
   :unresolved-var {:exclude []}}
  :lint-as {}
  :hooks {:analyze-call {app.macros/cond-let hooks.cond-xlet/cond-xlet
-                        app.macros/cond-xlet hooks.cond-xlet/cond-xlet}
+                        app.macros/cond-xlet hooks.cond-xlet/cond-xlet
+                        app.macros/bb hooks.binding-block/binding-block
+                        app.macros/binding-block hooks.binding-block/binding-block}
          :macroexpand {app.macros/args macros/args}}}
