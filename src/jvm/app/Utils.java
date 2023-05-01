@@ -51,7 +51,7 @@ public final class Utils {
   private static LocalDateTime OAStartLocalDateTime = LocalDateTime.parse("1899-12-30 00:00:00", dateTimeFormatter);
   private static ZonedDateTime OAStartZonedDateTime = ZonedDateTime.of(OAStartLocalDateTime, UTCZoneId);
 
-  private static int CACHE_MAX_SIZE = 1024 * 1024;
+  private static int CACHE_MAX_SIZE = 4 * 1024 * 1024;
   private static ConcurrentHashMap<String, Double> OADateLookupMap = new ConcurrentHashMap<String, Double>(
       CACHE_MAX_SIZE);
 
@@ -63,7 +63,7 @@ public final class Utils {
    * @return
    * @throws ParseException
    */
-  public static Double convertMarketTimestampToOADate(String timestamp) throws ParseException {
+  public static Double convertQuoteDateTimeToOADate(String timestamp) throws ParseException {
     if (OADateLookupMap.containsKey(timestamp)) {
       return OADateLookupMap.get(timestamp);
     }
@@ -80,5 +80,42 @@ public final class Utils {
     double oaDate = duration.toMillis() / (double) TimeUnit.DAYS.toMillis(1);
     OADateLookupMap.put(timestamp, oaDate);
     return oaDate;
+  }
+
+  private static ConcurrentHashMap<String, Instant> instantLookupMap = new ConcurrentHashMap<String, Instant>(
+    CACHE_MAX_SIZE
+  );
+
+  public static Instant QuoteDateTimeToInstant(String s) {
+    if (instantLookupMap.containsKey(s)) {
+      return instantLookupMap.get(s);
+    }
+    if (instantLookupMap.size() > CACHE_MAX_SIZE) {
+      System.out.println("instantLookupMap clear()");
+      instantLookupMap.clear();
+    }
+
+    final var ldt = LocalDateTime.parse(s, dateTimeFormatter);
+    final var zdt = ZonedDateTime.of(ldt, NewYorkZoneId);
+    final var t = zdt.toInstant();
+    instantLookupMap.put(s, t);
+    return t;
+  }
+
+  private static ConcurrentHashMap<String, Integer> DTELookupMap = new ConcurrentHashMap<String, Integer>(
+    CACHE_MAX_SIZE
+  );
+
+  public static Integer DTE(String quoteDateTime, String expDate) {
+    String key = quoteDateTime + "\n" + expDate;
+    if (DTELookupMap.containsKey(key)) {
+      return DTELookupMap.get(key);
+    }
+    final var quoteInstant = QuoteDateTimeToInstant(quoteDateTime);
+    final var expInstant = QuoteDateTimeToInstant(expDate + " 23:59:59");
+    final var duration = Duration.between(quoteInstant, expInstant);
+    Integer dte = (int) duration.toDays();
+    DTELookupMap.put(key, dte);
+    return dte;
   }
 }
