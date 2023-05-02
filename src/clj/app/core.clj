@@ -1,10 +1,11 @@
 (ns app.core
   (:require [app.config :refer [output-dir]]
             [app.io :refer [get-zips zip-file->line-seq]]
-            [app.macros :refer [field]]
+            [app.macros :refer [->hash field]]
             [app.s3]
             [clojure.java.io :as io]
-            [com.climate.claypoole :as cp])
+            [com.climate.claypoole :as cp]
+            [taoensso.timbre :refer [debug]])
   (:import app.Utils
            [java.io OutputStream]
            [java.util.zip ZipInputStream]
@@ -87,10 +88,10 @@
 
 (defn convert-zip [zip-path]
   (let [[year month] (path->year+month zip-path)
-        output-path (format "%s/%04d-%02d.t8" output-dir year month)]
+        output-path (format "%s/SPXW_%04d_%02d.t8" output-dir year month)]
     (println (format "%s -> %s" zip-path output-path))
     (let [{:keys [^ZipInputStream zip-input-stream lines]} (zip-file->line-seq zip-path)
-          is-right-dte? (gen-lteq-dte-filter? 9)
+          is-right-dte? (gen-lteq-dte-filter? 3)
           is-right-delta? (gen-lte-delta-filter? 0.80)
           xf (comp (map line->token-array)
                    (drop 1)
@@ -106,19 +107,38 @@
                      out-stream)
                    out-stream))
       (.close out-stream)
-      (.close zip-input-stream))))
+      (.close zip-input-stream)
+      [year output-path])))
+
+(defn glue-t8s-together [t8s]
+  (let [[year _output-path] (first t8s)
+        output-path (format "%s/SPXW_%04d.t8" output-dir year)]
+    (let [out (io/file output-path)
+          out-stream (io/output-stream out)]
+      (doseq [[_ t8-path] t8s]
+        (let [in (io/file t8-path)
+              in-stream (io/input-stream in)]
+          (io/copy in-stream out-stream)
+          (.close in-stream)
+          (io/delete-file in))))
+    output-path))
 
 (defn run []
-  (let [is-modern-zip?
+  (let [root "SPXW"
+        args (->hash root)
+
+        is-modern-zip?
         (fn [path]
           (let [[year _month] (path->year+month path)]
             (<= 2018 year)))]
     (->> (get-zips)
          (filter is-modern-zip?)
          (sort)
-         (take 1)
+        ;;  (take 2)
          (cp/pmap 4 convert-zip)
-         (count))))
+         (partition-by first)
+         (cp/pmap 4 glue-t8s-together)
+         (debug))))
 
 (defn -main
   "Entry point for the application."
