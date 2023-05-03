@@ -70,11 +70,10 @@
                 cider/cider-nrepl          {:mvn/version "0.30.0"}
                 com.bhauman/rebel-readline {:mvn/version "0.1.4"}}
    :jvm-opts ["-Djdk.attach.allowAttachSelf"
-              "-XX:+UseZGC"
-              ; "-XX:+UseParallelGC"
+        ;;        "-XX:+UseZGC"
+               "-XX:+UseParallelGC"
               ; "-XX:+UseG1GC" "-XX:+UseStringDeduplication"
-              ; "-XX:+UnlockDiagnosticVMOptions"
-              ; "-XX:+DebugNonSafepoints"
+        ;;       "-XX:+UnlockDiagnosticVMOptions" "-XX:+DebugNonSafepoints"
               "-Xmx16G"]
    :main-opts  ["-e" "(require,'app.core),(in-ns,'app.core)"
                 "-m" "nrepl.cmdline"
