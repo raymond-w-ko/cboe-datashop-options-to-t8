@@ -89,14 +89,6 @@
       (.close out))
     (keys outs)))
 
-(defn glue-t8s-together [t8s]
-  (let [[year _output-path] (first t8s)
-        output-path (format "%s/SPXW_%04d.t8" output-dir year)]
-    (with-open [o (io/output-stream (io/file output-path))]
-      (doseq [[_ t8-path] t8s]
-        (io/copy (io/file t8-path) o)))
-    output-path))
-
 (defn run []
   (let [root "SPXW"
         args (->hash root)
