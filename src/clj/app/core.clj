@@ -3,6 +3,7 @@
             [app.io :refer [get-zips zip-file->line-seq]]
             [app.macros :refer [->hash field]]
             [app.s3]
+            [clj-async-profiler.core :as prof]
             [clojure.java.io :as io]
             [com.climate.claypoole :as cp]
             [taoensso.timbre :refer [debug]])
@@ -61,6 +62,8 @@
   (let [arr (byte-array (+ (* 1 8) (* 8 4)))
         buf (new UnsafeBuffer arr)
 
+        quote-date (-> (field tokens "quote_datetime")
+                       (subs 0 10))
         quote-datetime (timestamp->oa-date (field tokens "quote_datetime"))
         bid (Float/parseFloat (field tokens "bid"))
         ask (Float/parseFloat (field tokens "ask"))
@@ -74,53 +77,61 @@
                             "P" 2)
                           int)]
     (.putDouble buf (* 0 4) quote-datetime)
-    (.putFloat buf (* 2 4) bid)
-    (.putFloat buf (* 3 4) ask)
+
+    ;; not a mistake, it really is ask/bid in *.t8 files
+    (.putFloat buf (* 2 4) ask)
+    (.putFloat buf (* 3 4) bid)
+
     (.putFloat buf (* 4 4) delta)
     (.putFloat buf (* 5 4) implied-volatility)
     (.putFloat buf (* 6 4) active-underlying-price)
     (.putFloat buf (* 7 4) strike)
     (.putInt buf (* 8 4) exp-date-int)
     (.putInt buf (* 9 4) contract-type)
-    arr))
+    [quote-date arr]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn convert-zip [zip-path]
-  (let [[year month] (path->year+month zip-path)
-        output-path (format "%s/SPXW_%04d_%02d.t8" output-dir year month)]
-    (println (format "%s -> %s" zip-path output-path))
-    (let [{:keys [^ZipInputStream zip-input-stream lines]} (zip-file->line-seq zip-path)
-          is-right-dte? (gen-lteq-dte-filter? 3)
-          is-right-delta? (gen-lte-delta-filter? 0.80)
-          xf (comp (map line->token-array)
-                   (drop 1)
-                   (filter is-spxw-root?)
-                   (filter is-right-dte?)
-                   (filter is-right-delta?)
-                   (map tokens->byte-array))
-          out (io/file output-path)
-          out-stream (io/output-stream out)]
-      (->> (eduction xf lines)
-           (reduce (fn [^OutputStream out-stream ^"[B" bytes]
-                     (.write out-stream bytes)
-                     out-stream)
-                   out-stream))
-      (.close out-stream)
-      (.close zip-input-stream)
-      [year output-path])))
+(defn quote-writer [{:keys [root]}
+                    outs
+                    [^String date ^"[B" bytes]]
+  (let [has-open-out (contains? outs date)
+        ^OutputStream out-stream
+        (if has-open-out
+          (get outs date)
+          (let [path (format "%s/%s_%s.t8" output-dir root date)]
+            (println "creating " path)
+            (io/output-stream (io/file path))))]
+    (.write out-stream bytes)
+    (if has-open-out
+      outs
+      (assoc outs date out-stream))))
+
+(defn convert-zip [args zip-path] 
+  (println (format "processing %s" zip-path))
+  (let [{:keys [^ZipInputStream zip-input-stream lines]} (zip-file->line-seq zip-path)
+        is-right-dte? (gen-lteq-dte-filter? 3)
+        is-right-delta? (gen-lte-delta-filter? 0.80)
+        xf (comp (map line->token-array)
+                 (drop 1)
+                 (filter is-spxw-root?)
+                 (filter is-right-dte?)
+                 (filter is-right-delta?)
+                 (map tokens->byte-array))
+        {:keys [outs]} (->> (eduction xf lines)
+                            (reduce (partial quote-writer args) {}))] 
+    (.close zip-input-stream)
+    (doseq [[_ ^OutputStream out] outs]
+      (debug "closing" out)
+      (.close out))
+    (keys outs)))
 
 (defn glue-t8s-together [t8s]
   (let [[year _output-path] (first t8s)
         output-path (format "%s/SPXW_%04d.t8" output-dir year)]
-    (let [out (io/file output-path)
-          out-stream (io/output-stream out)]
+    (with-open [o (io/output-stream (io/file output-path))]
       (doseq [[_ t8-path] t8s]
-        (let [in (io/file t8-path)
-              in-stream (io/input-stream in)]
-          (io/copy in-stream out-stream)
-          (.close in-stream)
-          (io/delete-file in))))
+        (io/copy (io/file t8-path) o)))
     output-path))
 
 (defn run []
@@ -134,11 +145,10 @@
     (->> (get-zips)
          (filter is-modern-zip?)
          (sort)
-        ;;  (take 2)
-         (cp/pmap 4 convert-zip)
-         (partition-by first)
-         (cp/pmap 4 glue-t8s-together)
+         (cp/pmap 8 (partial convert-zip args))
          (debug))))
+
+(defn profiled-run [] (prof/profile (run)))
 
 (defn -main
   "Entry point for the application."
