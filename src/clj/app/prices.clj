@@ -9,9 +9,9 @@
             [clojure.java.io :as io]
             [com.climate.claypoole :as cp]
             [taoensso.timbre :refer [debug]])
-(:import [java.nio ByteBuffer]
-         [java.util HashMap]
-         [java.util.zip ZipInputStream]))
+(:import [java.util HashMap]
+         [java.util.zip ZipInputStream]
+         [org.agrona.concurrent UnsafeBuffer]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -22,6 +22,8 @@
    (field tokens "active_underlying_price")])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def zero-float (float 0.0))
 
 (defn convert-zip [{:as args :keys [root]} zip-path]
   (println (format "processing %s" zip-path))
@@ -37,19 +39,32 @@
                               hm)
                             (new java.util.HashMap 8192)))]
     (.close zip-input-stream)
-    (let [path (format "%s/prices/%s_%04d-%02d.t1" output-dir root year month)
+    (let [path (format "%s/prices/%s_%04d-%02d.t6" output-dir root year month)
           out (io/output-stream path)]
       (doseq [[t p] prices]
-        (let [bb (ByteBuffer/allocate (* 3 4))]
-          (.putDouble bb (* 0 4) (timestamp->oa-date t))
-          (.putFloat bb (* 2 4) (Float/parseFloat p))
-          (.write out (.array bb))))
+        (let [arr (byte-array (* 8 4))
+              buf (new UnsafeBuffer arr)
+              f (Float/parseFloat p)
+              high f
+              low f
+              open f
+              close f
+              value zero-float
+              vol zero-float]
+          (.putDouble buf (* 0 4) (timestamp->oa-date t))
+          (.putFloat buf (* 2 4) high)
+          (.putFloat buf (* 3 4) low)
+          (.putFloat buf (* 4 4) open)
+          (.putFloat buf (* 5 4) close)
+          (.putFloat buf (* 6 4) value)
+          (.putFloat buf (* 7 4) vol)
+          (.write out arr)))
       (.close out)
       path)))
 
 
 (defn glue-files-together [{:keys [root]} paths]
-  (let [output-path (format "%s/prices/%s.t1" output-dir root)]
+  (let [output-path (format "%s/prices/%s.t6" output-dir root)]
     (with-open [o (io/output-stream (io/file output-path))]
       (doseq [p paths]
         (io/copy (io/file p) o)))
